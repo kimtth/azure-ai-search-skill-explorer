@@ -29,7 +29,7 @@ class AppController(QObject):
             'TranslationSkill': TextTranslationSkillTest,
             'ImageAnalysisSkill': ImageAnalysisSkillTest,
             'OcrSkill': OcrSkillTest,
-            'VectorizeSkill': VectorizeSkillTest,
+            'VisionVectorizeSkill': VisionVectorizeSkillTest,
             'DocumentIntelligenceLayoutSkill': DocumentIntelligenceLayoutSkillTest,
             'AzureOpenAIEmbeddingSkill': AzureOpenAIEmbeddingSkillTest,
             'ConditionalSkill': ConditionalSkillTest,
@@ -177,7 +177,7 @@ class AppController(QObject):
                 return skill_class(
                     self.tester.aoai_resource_uri,
                     self.tester.aoai_deployment_id,
-                    self.tester.ada_embedding_dimensions
+                    self.tester.embedding_dimensions
                 )
             else:
                 return skill_class()

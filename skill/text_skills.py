@@ -2,8 +2,7 @@ from .baseskill import TextSkill
 from azure.search.documents.indexes.models import (
     LanguageDetectionSkill, KeyPhraseExtractionSkill, EntityRecognitionSkill,
     SentimentSkill, PIIDetectionSkill, TextTranslationSkill, EntityLinkingSkill,
-    CustomEntityLookupSkill, OutputFieldMappingEntry, InputFieldMappingEntry,
-    # VectorizeSkill
+    CustomEntityLookupSkill, OutputFieldMappingEntry, VisionVectorizeSkill
 )
 
 
@@ -11,7 +10,7 @@ class LanguageDetectionSkillTest(TextSkill):
     def __init__(self):
         super().__init__("LanguageDetectionSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="languageCode", target_name="detectedLanguage")
+            OutputFieldMappingEntry(name="languageCode", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -20,15 +19,12 @@ class LanguageDetectionSkillTest(TextSkill):
             outputs=self.outputs
         )
     
-    def get_sample_input(self) -> str:
-        return "Hello, this is English. Bonjour, c'est français. Hola, esto es español."
-
 
 class KeyPhraseExtractionSkillTest(TextSkill):
     def __init__(self):
         super().__init__("KeyPhraseExtractionSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="keyPhrases", target_name="extractedKeyPhrases")
+            OutputFieldMappingEntry(name="keyPhrases", target_name="collection_output")
         ]
     
     def create_skill(self):
@@ -42,9 +38,9 @@ class EntityRecognitionSkillTest(TextSkill):
     def __init__(self):
         super().__init__("EntityRecognitionSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="persons", target_name="recognizedPersons"),
-            OutputFieldMappingEntry(name="organizations", target_name="recognizedOrganizations"),
-            OutputFieldMappingEntry(name="locations", target_name="recognizedLocations")
+            OutputFieldMappingEntry(name="persons", target_name="collection_output"),
+            OutputFieldMappingEntry(name="organizations", target_name="collection_output"),
+            OutputFieldMappingEntry(name="locations", target_name="collection_output")
         ]
     
     def create_skill(self):
@@ -59,7 +55,7 @@ class SentimentSkillTest(TextSkill):
     def __init__(self):
         super().__init__("SentimentSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="sentiment", target_name="documentSentiment")
+            OutputFieldMappingEntry(name="sentiment", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -67,17 +63,14 @@ class SentimentSkillTest(TextSkill):
             inputs=self.inputs,
             outputs=self.outputs
         )
-    
-    def get_sample_input(self) -> str:
-        return "The service was absolutely fantastic! I'm very happy with the results."
 
 
 class PIIDetectionSkillTest(TextSkill):
     def __init__(self):
         super().__init__("PIIDetectionSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="piiEntities", target_name="detectedPII"),
-            OutputFieldMappingEntry(name="maskedText", target_name="maskedText")
+            OutputFieldMappingEntry(name="piiEntities", target_name="collection_output"),
+            OutputFieldMappingEntry(name="maskedText", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -85,16 +78,13 @@ class PIIDetectionSkillTest(TextSkill):
             inputs=self.inputs,
             outputs=self.outputs
         )
-    
-    def get_sample_input(self) -> str:
-        return "John Doe's email is john.doe@example.com and his phone is 555-123-4567."
 
 
 class TextTranslationSkillTest(TextSkill):
     def __init__(self):
         super().__init__("TextTranslationSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="translatedText", target_name="translatedContent")
+            OutputFieldMappingEntry(name="translatedText", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -104,15 +94,12 @@ class TextTranslationSkillTest(TextSkill):
             default_to_language_code="es"  # Spanish
         )
     
-    def get_sample_input(self) -> str:
-        return "Hello world! How are you today?"
-
 
 class EntityLinkingSkillTest(TextSkill):
     def __init__(self):
         super().__init__("EntityLinkingSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="entities", target_name="linkedEntities")
+            OutputFieldMappingEntry(name="entities", target_name="collection_output")
         ]
     
     def create_skill(self):
@@ -120,16 +107,13 @@ class EntityLinkingSkillTest(TextSkill):
             inputs=self.inputs,
             outputs=self.outputs
         )
-    
-    def get_sample_input(self) -> str:
-        return "Microsoft was founded by Bill Gates in Redmond. Apple was founded by Steve Jobs."
 
 
 class CustomEntityLookupSkillTest(TextSkill):
     def __init__(self):
         super().__init__("CustomEntityLookupSkill")
         self.outputs = [
-            OutputFieldMappingEntry(name="entities", target_name="customEntities")
+            OutputFieldMappingEntry(name="entities", target_name="collection_output")
         ]
     
     def create_skill(self):
@@ -140,29 +124,23 @@ class CustomEntityLookupSkillTest(TextSkill):
         )
 
 
-class VectorizeSkillTest(TextSkill):
+class VisionVectorizeSkillTest(TextSkill):
     def __init__(self):
-        super().__init__("VectorizeSkill")
+        super().__init__("VisionVectorizeSkill")
         self.has_vector_output = True
-        self.vector_dimensions = 1024  # Default dimensions
         self.outputs = [
-            OutputFieldMappingEntry(name="vector", target_name="textVector")
+            OutputFieldMappingEntry(name="vector", target_name="vector_output")
         ]
     
     def create_skill(self):
-        # Note: VectorizeSkill parameters may vary based on Azure AI Search version
+        # Note: VisionVectorizeSkill parameters may vary based on Azure AI Search version
         # This is a basic configuration
-        # TODO
-        pass
-        # try:
-        #     return VectorizeSkill(
-        #         inputs=self.inputs,
-        #         outputs=self.outputs
-        #     )
-        # except Exception as e:
-        #     # Fallback if specific parameters are required
-        #     print(f"VectorizeSkill creation failed: {e}")
-        #     raise
-    
-    def get_sample_input(self) -> str:
-        return "This text will be converted to a vector representation using Azure AI."
+        try:
+            return VisionVectorizeSkill(
+                inputs=self.inputs,
+                outputs=self.outputs
+            )
+        except Exception as e:
+            # Fallback if specific parameters are required
+            print(f"VisionVectorizeSkill creation failed: {e}")
+            raise

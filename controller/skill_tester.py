@@ -3,10 +3,8 @@ import time
 import json
 from typing import List, Dict, Union
 from dotenv import load_dotenv
-import argparse
-
 from azure.core.credentials import AzureKeyCredential
-from azure.search.documents.indexes import SearchIndexClient
+from azure.search.documents.indexes import SearchIndexClient, SearchIndexerClient
 from azure.search.documents.indexes.models import (
     SearchIndexer, SearchIndexerDataSourceConnection, SearchIndexerSkillset,
     SearchField, SearchFieldDataType, IndexingParameters,
@@ -15,18 +13,20 @@ from azure.search.documents.indexes.models import (
     VectorSearchProfile
 )
 from azure.search.documents import SearchClient
-from azure.storage.blob import BlobServiceClient
 
 # Import all skill test classes
 from skill import (
     LanguageDetectionSkillTest, KeyPhraseExtractionSkillTest,
     EntityRecognitionSkillTest, SentimentSkillTest, PIIDetectionSkillTest,
     TextTranslationSkillTest, EntityLinkingSkillTest, CustomEntityLookupSkillTest,
-    VectorizeSkillTest, OcrSkillTest, ImageAnalysisSkillTest,
+    VisionVectorizeSkillTest, OcrSkillTest, ImageAnalysisSkillTest,
     DocumentExtractionSkillTest, DocumentIntelligenceLayoutSkillTest,
     ConditionalSkillTest, MergeSkillTest, ShaperSkillTest, SplitSkillTest,
     AzureOpenAIEmbeddingSkillTest
 )
+
+from .blob_control import BlobController
+from .ai_search_control import AiSearchController
 
 # Load environment variables
 load_dotenv()
@@ -34,19 +34,34 @@ load_dotenv()
 class AzureSearchSkillTester:
     def __init__(self):
         # Azure Search configuration
-        self.service_name = os.environ.get("SEARCH_SERVICE_NAME")
-        self.admin_key = os.environ.get("SEARCH_ADMIN_KEY")
-        self.query_key = os.environ.get("SEARCH_QUERY_KEY")
-        self.cognitive_services_key = os.environ.get("COGNITIVE_SERVICES_KEY")
+        self.service_name = os.environ.get("SEARCH_SERVICE_NAME", "")
+        self.admin_key = os.environ.get("SEARCH_ADMIN_KEY", "")
+        self.query_key = os.environ.get("SEARCH_QUERY_KEY", "")
+        self.cognitive_services_key = os.environ.get("COGNITIVE_SERVICES_KEY", "")
         
         # Storage configuration
-        self.storage_account_name = os.environ.get("STORAGE_ACCOUNT_NAME")
-        self.storage_account_key = os.environ.get("STORAGE_ACCOUNT_KEY")
-        
+        self.storage_account_name = os.environ.get("STORAGE_ACCOUNT_NAME", "")
+        self.storage_account_key = os.environ.get("STORAGE_ACCOUNT_KEY", "")
+        # where test blobs live
+        self.test_container_name = "aisearch-skill-test-data"
+
+        # init blob storage
+        self.blob_controller = BlobController(
+            self.storage_account_name,
+            self.storage_account_key,
+            self.test_container_name
+        )
+        # init AI Search controller
+        self.ai_search = AiSearchController(
+            self.service_name,
+            self.admin_key,
+            self.query_key
+        )
+
         # Azure OpenAI configuration
-        self.aoai_resource_uri = os.environ.get("AOAI_RESOURCE_URI")
-        self.aoai_deployment_id = os.environ.get("AOAI_DEPLOYMENT_ID", "text-embedding-ada-002")
-        self.ada_embedding_dimensions = int(os.environ.get("ADA_EMBEDDING_DIMENSIONS", "1536"))
+        self.aoai_resource_uri = os.environ.get("AOAI_RESOURCE_URI", "")
+        self.aoai_deployment_id = os.environ.get("AOAI_DEPLOYMENT_ID", "")
+        self.embedding_dimensions = int(os.environ.get("ADA_EMBEDDING_DIMENSIONS", "10"))
         
         # Initialize clients
         self.search_service_endpoint = f"https://{self.service_name}.search.windows.net/"
@@ -56,6 +71,7 @@ class AzureSearchSkillTester:
         self.admin_credential = AzureKeyCredential(self.admin_key)
         self.query_credential = AzureKeyCredential(self.query_key)
         self.index_client = SearchIndexClient(self.search_service_endpoint, self.admin_credential)
+        self.indexer_client = SearchIndexerClient(self.search_service_endpoint, self.admin_credential)
         
         # Test container
         self.test_container_name = "aisearch-skill-test-data"
@@ -64,10 +80,6 @@ class AzureSearchSkillTester:
         from parse.markitdown_parser import MarkitdownParser
         self.parser = MarkitdownParser()
         
-    def _get_blob_connection_string(self) -> str:
-        """Get Azure Blob Storage connection string."""
-        return f"DefaultEndpointsProtocol=https;AccountName={self.storage_account_name};AccountKey={self.storage_account_key};EndpointSuffix=core.windows.net"
-    
     def _create_test_resources(self, skill_name: str, unique_id: str) -> Dict[str, str]:
         """Create unique resource names for testing."""
         return {
@@ -77,40 +89,27 @@ class AzureSearchSkillTester:
             "indexer_name": f"ixr-{skill_name}-{unique_id}"
         }
     
-    def _upload_test_data(self, content: Union[str, bytes], test_id: str, is_image: bool = False) -> str:
-        """Upload test data to blob storage."""
-        blob_service_client = BlobServiceClient.from_connection_string(self._get_blob_connection_string())
-        container_client = blob_service_client.get_container_client(self.test_container_name)
-        
-        # Create container if it doesn't exist
-        try:
-            container_client.create_container()
-        except Exception as e:
-            if "ContainerAlreadyExists" not in str(e):
-                raise e
-        
-        # Upload content
-        extension = "jpg" if is_image else "txt"
-        blob_path = f"test_data/{test_id}/input.{extension}"
-        blob_client = container_client.get_blob_client(blob_path)
-        
-        if isinstance(content, str):
-            content = content.encode('utf-8')
-        
-        blob_client.upload_blob(content, overwrite=True)
-        return blob_path
-    
     def _create_data_source(self, ds_name: str) -> None:
         """Create Azure AI Search data source."""
+        ds = self.indexer_client.get_data_source_connection(ds_name)
+        if ds:
+            print(f"Data source {ds_name} already exists. Skipping creation.")
+            return
+
         data_source_connection = SearchIndexerDataSourceConnection(
             name=ds_name,
             type="azureblob",
-            connection_string=self._get_blob_connection_string(),
+            connection_string=self.blob_controller.get_connection_string(),
             container={"name": self.test_container_name}
         )
         self.index_client.create_or_update_data_source_connection(data_source_connection)
     
     def _create_skillset(self, skillset_name: str, skills: list) -> None:
+        sks = self.indexer_client.get_skillset(skillset_name)
+        if sks:
+            print(f"Skillset {skillset_name} already exists. Skipping creation.")
+            return
+
         """Create Azure AI Search skillset."""
         skillset = SearchIndexerSkillset(
             name=skillset_name,
@@ -122,10 +121,15 @@ class AzureSearchSkillTester:
     
     def _create_index(self, index_name: str, has_vector: bool = False, vector_dims: int = None) -> None:
         """Create search index with appropriate fields."""
+        index = self.index_client.get_index(index_name)
+        if index:
+            print(f"Index {index_name} already exists. Skipping creation.")
+            return
+
         fields = [
             SearchField(name="id", type=SearchFieldDataType.String, key=True),
             SearchField(name="content", type=SearchFieldDataType.String, searchable=True),
-            SearchField(name="string_output", type=SearchFieldDataType.String, searchable=True),
+            SearchField(name="content_output", type=SearchFieldDataType.String, searchable=True),
             SearchField(name="collection_output", type=SearchFieldDataType.Collection(SearchFieldDataType.String), searchable=True),
         ]
         
@@ -155,6 +159,11 @@ class AzureSearchSkillTester:
     def _create_and_run_indexer(self, indexer_name: str, ds_name: str, skillset_name: str, 
                                index_name: str, output_mappings: list, needs_images: bool = False) -> None:
         """Create and run indexer."""
+        indexer = self.indexer_client.get_indexer(indexer_name)
+        if indexer:
+            print(f"Indexer {indexer_name} already exists. Skipping creation.")
+            return
+
         field_mappings = [
             FieldMapping(
                 source_field_name="metadata_storage_path",
@@ -244,19 +253,31 @@ class AzureSearchSkillTester:
         try:
             # Upload test data
             print(f"\nTesting {skill_name}...")
-            self._upload_test_data(test_input, unique_id, is_image)
+            self.blob_controller.upload_test_data(test_input, unique_id, is_image)
             
             # Create resources
-            self._create_data_source(resources["ds_name"])
-            self._create_skillset(resources["skillset_name"], [skill])
-            self._create_index(resources["index_name"], has_vector_output, vector_dims)
-            
+            self.ai_search.create_data_source(
+                resources["ds_name"],
+                self.blob_controller.get_connection_string(),
+                self.test_container_name
+            )
+            self.ai_search.create_skillset(
+                resources["skillset_name"],
+                [skill],
+                self.cognitive_services_key
+            )
+            self.ai_search.create_index(
+                resources["index_name"],
+                has_vector_output,
+                vector_dims
+            )
+
             # Determine output mappings
             output_mappings = []
             for output in skill.outputs:
                 target_field = "vector_output" if has_vector_output else \
                              "collection_output" if any(x in output.name.lower() for x in ["phrases", "entities", "tags"]) else \
-                             "string_output"
+                             "content_output"
                 output_mappings.append(
                     OutputFieldMappingEntry(
                         source_field_name=f"/document/{output.target_name}",
@@ -265,8 +286,8 @@ class AzureSearchSkillTester:
                 )
             
             # Create and run indexer
-            self._create_and_run_indexer(
-                resources["indexer_name"], 
+            self.ai_search.create_and_run_indexer(
+                resources["indexer_name"],
                 resources["ds_name"],
                 resources["skillset_name"],
                 resources["index_name"],
@@ -275,7 +296,7 @@ class AzureSearchSkillTester:
             )
             
             # Fetch and return results
-            results = self._fetch_results(resources["index_name"])
+            results = self.ai_search.fetch_results(resources["index_name"])
             if results:
                 print(f"Results for {skill_name}:")
                 for result in results:
@@ -283,7 +304,7 @@ class AzureSearchSkillTester:
             return results
             
         finally:
-            self._cleanup_resources(resources)
+            self.ai_search.cleanup_resources(resources)
     
     def process_file_input(self, file_path: str) -> Union[str, bytes, None]:
         """Process file input and return appropriate content for skills."""
@@ -323,7 +344,7 @@ class AzureSearchSkillTester:
                 skill_test = skill_test_class(
                     self.aoai_resource_uri,
                     self.aoai_deployment_id,
-                    self.ada_embedding_dimensions
+                    self.embedding_dimensions
                 )
             else:
                 skill_test = skill_test_class()
@@ -365,7 +386,7 @@ class AzureSearchSkillTester:
             TextTranslationSkillTest,
             EntityLinkingSkillTest,
             CustomEntityLookupSkillTest,
-            VectorizeSkillTest,
+            VisionVectorizeSkillTest,
         ]
         
         # Image skills
@@ -437,23 +458,10 @@ class AzureSearchSkillTester:
             skill_test = AzureOpenAIEmbeddingSkillTest(
                 self.aoai_resource_uri,
                 self.aoai_deployment_id,
-                self.ada_embedding_dimensions
+                self.embedding_dimensions
             )
             results = self.test_skill_with_class(skill_test)
             print(skill_test.format_results(results))
         except Exception as e:
             print(f"Error testing embedding skill: {e}")
 
-    def run(self):
-        """GUI-only entry point."""
-        from PyQt6.QtWidgets import QApplication
-        from main_window import AzureAISkillExplorer
-        app = QApplication([])
-        app.setStyle('Fusion')
-        window = AzureAISkillExplorer()
-        window.show()
-        app.exec()
-
-# Minimal entrypoint
-if __name__ == "__main__":
-    AzureSearchSkillTester().run()

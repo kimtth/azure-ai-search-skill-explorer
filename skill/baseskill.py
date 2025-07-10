@@ -24,10 +24,6 @@ class BaseSkill(ABC):
         pass
     
     @abstractmethod
-    def get_sample_input(self) -> Union[str, bytes]:
-        """Get sample input data for testing."""
-        pass
-    
     def get_input_mappings(self) -> List[InputFieldMappingEntry]:
         """Get input field mappings for the skill."""
         return self.inputs
@@ -45,7 +41,7 @@ class BaseSkill(ABC):
         elif any(x in output_lower for x in ["phrases", "entities", "tags", "persons", "organizations", "locations"]):
             return "collection_output"
         else:
-            return "string_output"
+            return "content_output"
     
     def validate_results(self, results: List[Dict]) -> bool:
         """Validate the results from the skill execution."""
@@ -91,10 +87,6 @@ class TextSkill(BaseSkill):
         self.inputs = [
             InputFieldMappingEntry(name="text", source="/document/content")
         ]
-        
-    def get_sample_input(self) -> str:
-        """Get sample text input."""
-        return "Microsoft was founded by Bill Gates and Paul Allen in Seattle. The company is headquartered in Redmond, Washington. Contact: info@microsoft.com or call 425-882-8080."
 
 
 class ImageSkill(BaseSkill):
@@ -107,20 +99,3 @@ class ImageSkill(BaseSkill):
             InputFieldMappingEntry(name="image", source="/document/normalized_images/*")
         ]
         
-    def get_sample_input(self) -> bytes:
-        """Get sample image input."""
-        from PIL import Image, ImageDraw, ImageFont
-        from io import BytesIO
-        
-        img = Image.new('RGB', (400, 200), color='white')
-        draw = ImageDraw.Draw(img)
-        try:
-            font = ImageFont.truetype("arial.ttf", 36)
-        except:
-            font = ImageFont.load_default()
-        
-        draw.text((50, 80), f"Test for {self.skill_name}", fill='black', font=font)
-        
-        buffer = BytesIO()
-        img.save(buffer, format='PNG')
-        return buffer.getvalue()

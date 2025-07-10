@@ -17,7 +17,7 @@ class ConditionalSkillTest(TextSkill):
             InputFieldMappingEntry(name="whenFalse", source="/document/content")
         ]
         self.outputs = [
-            OutputFieldMappingEntry(name="output", target_name="conditionalOutput")
+            OutputFieldMappingEntry(name="output", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -25,9 +25,6 @@ class ConditionalSkillTest(TextSkill):
             inputs=self.inputs,
             outputs=self.outputs
         )
-    
-    def get_sample_input(self) -> str:
-        return "This content will be processed conditionally based on language detection."
 
 
 class MergeSkillTest(TextSkill):
@@ -41,7 +38,7 @@ class MergeSkillTest(TextSkill):
             InputFieldMappingEntry(name="itemsToInsert", source="/document/normalized_images/*/text")
         ]
         self.outputs = [
-            OutputFieldMappingEntry(name="mergedText", target_name="mergedContent")
+            OutputFieldMappingEntry(name="mergedText", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -65,7 +62,7 @@ class ShaperSkillTest(TextSkill):
             InputFieldMappingEntry(name="title", source="/document/metadata_title")
         ]
         self.outputs = [
-            OutputFieldMappingEntry(name="output", target_name="shapedDocument")
+            OutputFieldMappingEntry(name="output", target_name="content_output")
         ]
     
     def create_skill(self):
@@ -73,9 +70,6 @@ class ShaperSkillTest(TextSkill):
             inputs=self.inputs,
             outputs=self.outputs
         )
-    
-    def get_sample_input(self) -> str:
-        return "Content to be shaped into a complex structure with metadata"
 
 
 class SplitSkillTest(TextSkill):
@@ -85,7 +79,7 @@ class SplitSkillTest(TextSkill):
         super().__init__("SplitSkill")
         self.requires_cognitive_services = False
         self.outputs = [
-            OutputFieldMappingEntry(name="textItems", target_name="pages")
+            OutputFieldMappingEntry(name="textItems", target_name="collection_output")
         ]
     
     def create_skill(self):
@@ -97,9 +91,3 @@ class SplitSkillTest(TextSkill):
             page_overlap_length=100
         )
     
-    def get_sample_input(self) -> str:
-        # Create a long text that will be split
-        return " ".join([
-            f"This is paragraph {i}. " * 10
-            for i in range(20)
-        ])

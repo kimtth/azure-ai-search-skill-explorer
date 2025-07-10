@@ -3,7 +3,7 @@ from .text_skills import (
     LanguageDetectionSkillTest, KeyPhraseExtractionSkillTest,
     EntityRecognitionSkillTest, SentimentSkillTest, PIIDetectionSkillTest,
     TextTranslationSkillTest, EntityLinkingSkillTest, CustomEntityLookupSkillTest,
-    VectorizeSkillTest
+    VisionVectorizeSkillTest
 )
 from .image_skills import OcrSkillTest, ImageAnalysisSkillTest
 from .document_skills import DocumentExtractionSkillTest, DocumentIntelligenceLayoutSkillTest
@@ -16,7 +16,7 @@ __all__ = [
     'LanguageDetectionSkillTest', 'KeyPhraseExtractionSkillTest',
     'EntityRecognitionSkillTest', 'SentimentSkillTest', 'PIIDetectionSkillTest',
     'TextTranslationSkillTest', 'EntityLinkingSkillTest', 'CustomEntityLookupSkillTest',
-    'VectorizeSkillTest',
+    'VisionVectorizeSkillTest',
     # Image skills
     'OcrSkillTest', 'ImageAnalysisSkillTest',
     # Document skills
