@@ -18,10 +18,11 @@ from azure.search.documents import SearchClient
 from skill import (
     LanguageDetectionSkillTest, KeyPhraseExtractionSkillTest,
     EntityRecognitionSkillTest, SentimentSkillTest, PIIDetectionSkillTest,
-    TextTranslationSkillTest, EntityLinkingSkillTest, CustomEntityLookupSkillTest,
+    TextTranslationSkillTest, EntityLinkingSkillTest, 
+    # CustomEntityLookupSkillTest,
     VisionVectorizeSkillTest, OcrSkillTest, ImageAnalysisSkillTest,
     DocumentExtractionSkillTest, DocumentIntelligenceLayoutSkillTest,
-    ConditionalSkillTest, MergeSkillTest, ShaperSkillTest, SplitSkillTest,
+    # ConditionalSkillTest, MergeSkillTest, ShaperSkillTest, SplitSkillTest,
     AzureOpenAIEmbeddingSkillTest
 )
 
@@ -61,7 +62,7 @@ class AzureSearchSkillTester:
         # Azure OpenAI configuration
         self.aoai_resource_uri = os.environ.get("AOAI_RESOURCE_URI", "")
         self.aoai_deployment_id = os.environ.get("AOAI_DEPLOYMENT_ID", "")
-        self.embedding_dimensions = int(os.environ.get("ADA_EMBEDDING_DIMENSIONS", "10"))
+        self.embedding_dimensions = int(os.environ.get("AOAI_EMBEDDING_DIMENSIONS", "10"))
         
         # Initialize clients
         self.search_service_endpoint = f"https://{self.service_name}.search.windows.net/"

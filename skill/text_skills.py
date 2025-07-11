@@ -1,146 +1,200 @@
 from .baseskill import TextSkill
 from azure.search.documents.indexes.models import (
-    LanguageDetectionSkill, KeyPhraseExtractionSkill, EntityRecognitionSkill,
-    SentimentSkill, PIIDetectionSkill, TextTranslationSkill, EntityLinkingSkill,
-    CustomEntityLookupSkill, OutputFieldMappingEntry, VisionVectorizeSkill
+    LanguageDetectionSkill,
+    KeyPhraseExtractionSkill,
+    EntityRecognitionSkill,
+    SentimentSkill,
+    PIIDetectionSkill,
+    TextTranslationSkill,
+    EntityLinkingSkill,
+    # CustomEntityLookupSkill,
+    OutputFieldMappingEntry,
 )
 
 
 class LanguageDetectionSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(self, default_country_hint: str = None):
         super().__init__("LanguageDetectionSkill")
+        self.default_country_hint = default_country_hint
         self.outputs = [
             OutputFieldMappingEntry(name="languageCode", target_name="content_output")
         ]
-    
+
     def create_skill(self):
         return LanguageDetectionSkill(
+            default_country_hint=self.default_country_hint,
             inputs=self.inputs,
-            outputs=self.outputs
+            outputs=self.outputs,
         )
-    
+
 
 class KeyPhraseExtractionSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        default_language_code: str = None,
+        max_key_phrase_count: int = None,
+        model_version: str = None,
+    ):
         super().__init__("KeyPhraseExtractionSkill")
+        self.default_language_code = default_language_code
+        self.max_key_phrase_count = max_key_phrase_count
+        self.model_version = model_version
         self.outputs = [
             OutputFieldMappingEntry(name="keyPhrases", target_name="collection_output")
         ]
-    
+
     def create_skill(self):
         return KeyPhraseExtractionSkill(
+            default_language_code=self.default_language_code,
+            max_key_phrase_count=self.max_key_phrase_count,
+            model_version=self.model_version,
             inputs=self.inputs,
-            outputs=self.outputs
+            outputs=self.outputs,
         )
 
 
 class EntityRecognitionSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        categories: list = None,
+        default_language_code: str = None,
+        minimum_precision: float = None,
+        model_version: str = None,
+    ):
         super().__init__("EntityRecognitionSkill")
+        self.categories = categories or ["Person", "Organization", "Location"]
+        self.default_language_code = default_language_code
+        self.minimum_precision = minimum_precision
+        self.model_version = model_version
         self.outputs = [
             OutputFieldMappingEntry(name="persons", target_name="collection_output"),
-            OutputFieldMappingEntry(name="organizations", target_name="collection_output"),
-            OutputFieldMappingEntry(name="locations", target_name="collection_output")
+            OutputFieldMappingEntry(
+                name="organizations", target_name="collection_output"
+            ),
+            OutputFieldMappingEntry(name="locations", target_name="collection_output"),
         ]
-    
+
     def create_skill(self):
         return EntityRecognitionSkill(
+            categories=self.categories,
+            default_language_code=self.default_language_code,
+            minimum_precision=self.minimum_precision,
+            model_version=self.model_version,
             inputs=self.inputs,
             outputs=self.outputs,
-            categories=["Person", "Organization", "Location"]
         )
 
 
 class SentimentSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        default_language_code: str = None,
+        include_opinion_mining: bool = False,
+        model_version: str = None,
+    ):
         super().__init__("SentimentSkill")
+        self.default_language_code = default_language_code
+        self.include_opinion_mining = include_opinion_mining
+        self.model_version = model_version
         self.outputs = [
             OutputFieldMappingEntry(name="sentiment", target_name="content_output")
         ]
-    
+
     def create_skill(self):
         return SentimentSkill(
+            default_language_code=self.default_language_code,
+            include_opinion_mining=self.include_opinion_mining,
+            model_version=self.model_version,
             inputs=self.inputs,
-            outputs=self.outputs
+            outputs=self.outputs,
         )
 
 
 class PIIDetectionSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        default_language_code: str = None,
+        minimum_precision: float = None,
+        masking_mode: str = None,
+        masking_character: str = None,
+        domain: str = None,
+        pii_categories: list = None,
+    ):
         super().__init__("PIIDetectionSkill")
+        self.default_language_code = default_language_code
+        self.minimum_precision = minimum_precision
+        self.masking_mode = masking_mode
+        self.masking_character = masking_character
+        self.domain = domain
+        self.pii_categories = pii_categories
         self.outputs = [
-            OutputFieldMappingEntry(name="piiEntities", target_name="collection_output"),
-            OutputFieldMappingEntry(name="maskedText", target_name="content_output")
+            OutputFieldMappingEntry(
+                name="piiEntities", target_name="collection_output"
+            ),
+            OutputFieldMappingEntry(name="maskedText", target_name="content_output"),
         ]
-    
+
     def create_skill(self):
         return PIIDetectionSkill(
+            default_language_code=self.default_language_code,
+            minimum_precision=self.minimum_precision,
+            masking_mode=self.masking_mode,
+            masking_character=self.masking_character,
+            domain=self.domain,
+            pii_categories=self.pii_categories,
             inputs=self.inputs,
-            outputs=self.outputs
+            outputs=self.outputs,
         )
 
 
 class TextTranslationSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        default_to_language_code: str,
+        default_from_language_code: str = None,
+        suggested_from: str = None,
+    ):
         super().__init__("TextTranslationSkill")
+        self.default_to_language_code = default_to_language_code
+        self.default_from_language_code = default_from_language_code
+        self.suggested_from = suggested_from
         self.outputs = [
             OutputFieldMappingEntry(name="translatedText", target_name="content_output")
         ]
-    
+
     def create_skill(self):
         return TextTranslationSkill(
+            default_to_language_code=self.default_to_language_code,
+            default_from_language_code=self.default_from_language_code,
+            suggested_from=self.suggested_from,
             inputs=self.inputs,
             outputs=self.outputs,
-            default_to_language_code="es"  # Spanish
         )
-    
+
 
 class EntityLinkingSkillTest(TextSkill):
-    def __init__(self):
+    def __init__(
+        self,
+        default_language_code: str = None,
+        minimum_precision: float = None,
+        model_version: str = None,
+    ):
         super().__init__("EntityLinkingSkill")
+        self.default_language_code = default_language_code
+        self.minimum_precision = minimum_precision
+        self.model_version = model_version
         self.outputs = [
             OutputFieldMappingEntry(name="entities", target_name="collection_output")
         ]
-    
+
     def create_skill(self):
         return EntityLinkingSkill(
-            inputs=self.inputs,
-            outputs=self.outputs
-        )
-
-
-class CustomEntityLookupSkillTest(TextSkill):
-    def __init__(self):
-        super().__init__("CustomEntityLookupSkill")
-        self.outputs = [
-            OutputFieldMappingEntry(name="entities", target_name="collection_output")
-        ]
-    
-    def create_skill(self):
-        return CustomEntityLookupSkill(
+            default_language_code=self.default_language_code,
+            minimum_precision=self.minimum_precision,
+            model_version=self.model_version,
             inputs=self.inputs,
             outputs=self.outputs,
-            entities_definition_uri="https://example.com/entities.csv"  # Would need real URI
         )
 
 
-class VisionVectorizeSkillTest(TextSkill):
-    def __init__(self):
-        super().__init__("VisionVectorizeSkill")
-        self.has_vector_output = True
-        self.outputs = [
-            OutputFieldMappingEntry(name="vector", target_name="vector_output")
-        ]
-    
-    def create_skill(self):
-        # Note: VisionVectorizeSkill parameters may vary based on Azure AI Search version
-        # This is a basic configuration
-        try:
-            return VisionVectorizeSkill(
-                inputs=self.inputs,
-                outputs=self.outputs
-            )
-        except Exception as e:
-            # Fallback if specific parameters are required
-            print(f"VisionVectorizeSkill creation failed: {e}")
-            raise
+
