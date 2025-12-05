@@ -1,7 +1,7 @@
 [project]
 name = "azure-ai-search-skill-explorer"
 version = "0.1.0"
-description = ""
+description = "Preview Azure AI Search built-in skill outputs"
 authors = [
     {name = "kimtth"}
 ]
@@ -9,15 +9,12 @@ readme = "README.md"
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "pyqt6 (>=6.9.1,<7.0.0)",
-    "azure-search-documents (==11.6.0b12)",
-    "azure-storage-blob (>=12.25.1,<13.0.0)",
-    "azure-core (>=1.35.0,<2.0.0)",
     "python-dotenv (>=1.1.1,<2.0.0)",
-    "pillow (>=11.3.0,<12.0.0)",
-    "requests (>=2.32.4,<3.0.0)",
-    "markitdown[pdf] (>=0.1.2,<0.2.0)",
-    "onnxruntime (==1.20.1)"
+    "azure-search-documents (>=11.6.0,<12.0.0)",
 ]
+
+[tool.poetry]
+package-mode = false
 
 
 [build-system]

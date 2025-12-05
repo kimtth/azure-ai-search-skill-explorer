@@ -1,211 +1,295 @@
-import os
 import sys
+import os
 from PyQt6.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QProgressBar,
-    QTextEdit,
-    QHBoxLayout,
-    QFileDialog,
-    QSizePolicy,
-    QComboBox,
+    QApplication, QWidget, QVBoxLayout, QLabel, QTextEdit,
+    QPushButton, QProgressBar, QHBoxLayout, QSizePolicy, QComboBox,
+    QLineEdit, QGroupBox, QTabWidget, QMessageBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QIcon
+from dotenv import load_dotenv
+from controller.skill_preview import SkillPreviewEngine
+from controller.search_client import AzureSearchClient
+from skill.sample_data import get_sample_for_skill, is_image_skill
 
-# Import the skill tester and skill test classes
-from controller.skill_tester import AzureSearchSkillTester
-from skill import (
-    LanguageDetectionSkillTest,
-    KeyPhraseExtractionSkillTest,
-    EntityRecognitionSkillTest,
-    SentimentSkillTest,
-    PIIDetectionSkillTest,
-    TextTranslationSkillTest,
-    EntityLinkingSkillTest,
-    # CustomEntityLookupSkillTest,
-    VisionVectorizeSkillTest,
-    OcrSkillTest,
-    ImageAnalysisSkillTest,
-    DocumentExtractionSkillTest,
-    DocumentIntelligenceLayoutSkillTest,
-    # ConditionalSkillTest,
-    # MergeSkillTest,
-    # ShaperSkillTest,
-    # SplitSkillTest,
-    AzureOpenAIEmbeddingSkillTest,
-)
+load_dotenv()
 
 
 class AzureAISkillExplorer(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
-        # instantiate the tester
-        self.tester = AzureSearchSkillTester()
-        # map display names to test classes
-        self.skill_map = {
-            "LanguageDetectionSkill": LanguageDetectionSkillTest,
-            "KeyPhraseExtractionSkill": KeyPhraseExtractionSkillTest,
-            "EntityRecognitionSkill": EntityRecognitionSkillTest,
-            "SentimentSkill": SentimentSkillTest,
-            "PIIDetectionSkill": PIIDetectionSkillTest,
-            "TranslationSkill": TextTranslationSkillTest,
-            "EntityLinkingSkill": EntityLinkingSkillTest,
-            # "CustomEntityLookupSkill": CustomEntityLookupSkillTest,
-            "VisionVectorizeSkill": VisionVectorizeSkillTest,
-            "OcrSkill": OcrSkillTest,
-            "ImageAnalysisSkill": ImageAnalysisSkillTest,
-            "DocumentExtractionSkill": DocumentExtractionSkillTest,
-            "DocumentIntelligenceLayoutSkill": DocumentIntelligenceLayoutSkillTest,
-            # "ConditionalSkill": ConditionalSkillTest,
-            # "MergeSkill": MergeSkillTest,
-            # "ShaperSkill": ShaperSkillTest,
-            # "SplitSkill": SplitSkillTest,
-            "AzureOpenAIEmbeddingSkill": AzureOpenAIEmbeddingSkillTest,
-        }
+        self.preview_engine = SkillPreviewEngine()
+        self.search_client = None
+        self.current_index_name = None
         self.worker = None
+        self.initUI()
+        self._load_config()
+
+    def _load_config(self):
+        endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
+        api_key = os.getenv("AZURE_SEARCH_API_KEY", "")
+        if endpoint:
+            self.endpoint_input.setText(endpoint)
+        if api_key:
+            self.api_key_input.setText(api_key)
 
     def initUI(self):
         self.setWindowTitle("Azure AI Search Skill Explorer")
-        self.setGeometry(100, 100, 600, 500)
-        self.setFixedSize(600, 500)  # Set fixed window size
-        icon_path = os.path.join(os.path.dirname(__file__), "azure.png")
-        self.setWindowIcon(QIcon(icon_path))  # Set custom icon
+        self.setGeometry(100, 100, 800, 700)
+        self.setMinimumSize(700, 600)
 
         layout = QVBoxLayout()
 
-        # Header Label
+        # Header
         header = QLabel("Azure AI Search Skill Explorer")
-        header.setStyleSheet(
-            "background-color: #0066b3; color: white; padding: 10px; font-size: 16px;"
-        )
+        header.setStyleSheet("background-color: #0066b3; color: white; padding: 10px; font-size: 16px;")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
 
-        # Blob file input section
-        file_layout = QHBoxLayout()
-        file_label = QLabel("Blob file")
-        file_label.setFixedWidth(80)
-        self.file_input = QLineEdit()
-        browse_button = QPushButton("Browse")
-        browse_button.clicked.connect(self.browseFile)
+        # Azure Config Group
+        config_group = QGroupBox("Azure AI Search Configuration")
+        config_layout = QVBoxLayout()
+        
+        endpoint_layout = QHBoxLayout()
+        endpoint_layout.addWidget(QLabel("Endpoint:"))
+        self.endpoint_input = QLineEdit()
+        self.endpoint_input.setPlaceholderText("https://your-search-service.search.windows.net")
+        endpoint_layout.addWidget(self.endpoint_input)
+        config_layout.addLayout(endpoint_layout)
+        
+        key_layout = QHBoxLayout()
+        key_layout.addWidget(QLabel("API Key:"))
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.api_key_input.setPlaceholderText("Enter your admin API key")
+        key_layout.addWidget(self.api_key_input)
+        config_layout.addLayout(key_layout)
+        
+        connect_btn = QPushButton("Connect")
+        connect_btn.clicked.connect(self.connect_to_azure)
+        config_layout.addWidget(connect_btn)
+        
+        self.connection_status = QLabel("Status: Not connected")
+        config_layout.addWidget(self.connection_status)
+        
+        config_group.setLayout(config_layout)
+        layout.addWidget(config_group)
 
-        file_layout.addWidget(file_label)
-        file_layout.addWidget(self.file_input)
-        file_layout.addWidget(browse_button)
-
-        layout.addLayout(file_layout)
-
-        # Skill select dropdown
+        # Skill selector
         skill_layout = QHBoxLayout()
-        skill_label = QLabel("Skill")
-        skill_label.setFixedWidth(80)
+        skill_label = QLabel("Skill:")
+        skill_label.setFixedWidth(50)
         self.skill_combo = QComboBox()
-        self.skill_combo.addItems(
-            [
-                "CustomEntityLookupSkill",
-                "KeyPhraseExtractionSkill",
-                "LanguageDetectionSkill",
-                "EntityRecognitionSkill",
-                "EntityLinkingSkill",
-                "PIIDetectionSkill",
-                "SentimentSkill",
-                "TranslationSkill",
-                "ImageAnalysisSkill",
-                "OcrSkill",
-                "VisionVectorizeSkill",
-                "DocumentIntelligenceLayoutSkill",
-                "AzureOpenAIEmbeddingSkill",
-                # "ConditionalSkill",
-                "DocumentExtractionSkill",
-                # "MergeSkill",
-                # "ShaperSkill",
-                # "SplitSkill",
-                # Custom skills
-                # WebApiSkill,
-                # AmlSkill
-            ]
-        )
-        self.skill_combo.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-
-        run_button = QPushButton("Run")
-        run_button.clicked.connect(self.runSkill)
-
+        self.skill_combo.addItems([
+            "LanguageDetectionSkill", "KeyPhraseExtractionSkill", "EntityRecognitionSkill",
+            "EntityLinkingSkill", "PIIDetectionSkill", "SentimentSkill", "TextTranslationSkill",
+            "ImageAnalysisSkill", "OcrSkill", "VisionVectorizeSkill",
+            "DocumentExtractionSkill", "DocumentIntelligenceLayoutSkill",
+            "ConditionalSkill", "MergeSkill", "ShaperSkill", "SplitSkill",
+            "AzureOpenAIEmbeddingSkill",
+        ])
+        self.skill_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.skill_combo.currentTextChanged.connect(self.on_skill_changed)
         skill_layout.addWidget(skill_label)
         skill_layout.addWidget(self.skill_combo)
-        skill_layout.addWidget(run_button)
-
         layout.addLayout(skill_layout)
 
-        # Progress bar with fixed height
+        # Sample input area
+        self.input_label = QLabel("Sample Input:")
+        layout.addWidget(self.input_label)
+        self.input_area = QTextEdit()
+        self.input_area.setMaximumHeight(100)
+        self.input_area.setPlaceholderText("Sample input text or image URL for the skill...")
+        layout.addWidget(self.input_area)
+
+        # Action buttons
+        btn_layout = QHBoxLayout()
+        self.preview_btn = QPushButton("Preview (Local)")
+        self.preview_btn.clicked.connect(self.run_preview)
+        btn_layout.addWidget(self.preview_btn)
+        
+        self.create_index_btn = QPushButton("Create Index & Upload")
+        self.create_index_btn.clicked.connect(self.create_index_and_upload)
+        self.create_index_btn.setEnabled(False)
+        btn_layout.addWidget(self.create_index_btn)
+        
+        self.query_btn = QPushButton("Query Index")
+        self.query_btn.clicked.connect(self.query_index)
+        self.query_btn.setEnabled(False)
+        btn_layout.addWidget(self.query_btn)
+        
+        self.delete_btn = QPushButton("Delete Index")
+        self.delete_btn.clicked.connect(self.delete_index)
+        self.delete_btn.setEnabled(False)
+        btn_layout.addWidget(self.delete_btn)
+        
+        layout.addLayout(btn_layout)
+
+        # Progress bar
         self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(30)
-        self.progress_bar.setFormat("Progress bar %")
-        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_bar.setFixedHeight(30)  # Set fixed height
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFixedHeight(20)
         layout.addWidget(self.progress_bar)
 
-        layout.addSpacing(10)
-
-        # Log area
-        self.log_area = QTextEdit()
-        self.log_area.setPlaceholderText("Log area")
-        self.log_area.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-        layout.addWidget(self.log_area)
+        # Output tabs
+        self.output_tabs = QTabWidget()
+        
+        self.preview_output = QTextEdit()
+        self.preview_output.setReadOnly(True)
+        self.output_tabs.addTab(self.preview_output, "Preview Output")
+        
+        self.index_output = QTextEdit()
+        self.index_output.setReadOnly(True)
+        self.output_tabs.addTab(self.index_output, "Index Results")
+        
+        layout.addWidget(self.output_tabs)
 
         self.setLayout(layout)
+        self.on_skill_changed(self.skill_combo.currentText())
 
-    def browseFile(self):
-        file_dialog = QFileDialog(self)
-        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-        if file_dialog.exec():
-            file_path = file_dialog.selectedFiles()[0]
-            self.file_input.setText(file_path)
-
-    def runSkill(self):
-        """Run the selected skill through the tester and display results."""
-        selected = self.skill_combo.currentText()
-        cls = self.skill_map.get(selected)
-        path = self.file_input.text()
-        self.log_area.clear()
-        self.progress_bar.setValue(10)
-
-        if not cls:
-            self.log_area.append(f"No test class for '{selected}'")
+    def connect_to_azure(self):
+        endpoint = self.endpoint_input.text().strip()
+        api_key = self.api_key_input.text().strip()
+        
+        if not endpoint or not api_key:
+            QMessageBox.warning(self, "Error", "Please enter endpoint and API key")
             return
+        
+        try:
+            self.search_client = AzureSearchClient(endpoint, api_key)
+            indexes = self.search_client.list_indexes()
+            self.connection_status.setText(f"Status: Connected ({len(indexes)} indexes)")
+            self.connection_status.setStyleSheet("color: green;")
+            self.create_index_btn.setEnabled(True)
+            self.query_btn.setEnabled(True)
+            self.delete_btn.setEnabled(True)
+        except Exception as e:
+            self.connection_status.setText(f"Status: Connection failed")
+            self.connection_status.setStyleSheet("color: red;")
+            QMessageBox.critical(self, "Connection Error", str(e))
 
-        # Run in background thread
-        self.worker = SkillWorker(cls, path, self.tester)
-        self.worker.resultsReady.connect(self.onResults)
+    def on_skill_changed(self, skill_name: str):
+        sample = get_sample_for_skill(skill_name)
+        self.input_area.setPlainText(sample)
+        self.preview_output.clear()
+        self.progress_bar.setValue(0)
+        
+        # Update label based on skill type
+        if is_image_skill(skill_name):
+            self.input_label.setText("Sample Input (Image URL):")
+            self.input_area.setPlaceholderText("Enter image URL...")
+        else:
+            self.input_label.setText("Sample Input (Text):")
+            self.input_area.setPlaceholderText("Enter sample text...")
+
+    def run_preview(self):
+        self.preview_output.clear()
+        self.progress_bar.setValue(20)
+        self.output_tabs.setCurrentIndex(0)
+        
+        skill_name = self.skill_combo.currentText()
+        input_text = self.input_area.toPlainText()
+        
+        self.worker = PreviewWorker(self.preview_engine, skill_name, input_text)
+        self.worker.finished.connect(self.on_preview_complete)
         self.worker.start()
 
-    def onResults(self, results):
+    def on_preview_complete(self, result: str):
         self.progress_bar.setValue(100)
-        for r in results:
-            self.log_area.append(str(r))
+        self.preview_output.setPlainText(result)
+
+    def create_index_and_upload(self):
+        if not self.search_client:
+            return
+        
+        self.progress_bar.setValue(10)
+        skill_name = self.skill_combo.currentText()
+        input_text = self.input_area.toPlainText()
+        
+        self.worker = IndexWorker(
+            self.search_client, self.preview_engine, skill_name, input_text, "create"
+        )
+        self.worker.finished.connect(self.on_index_operation_complete)
+        self.worker.start()
+
+    def query_index(self):
+        if not self.search_client:
+            return
+        
+        skill_name = self.skill_combo.currentText()
+        self.worker = IndexWorker(self.search_client, None, skill_name, "", "query")
+        self.worker.finished.connect(self.on_index_operation_complete)
+        self.worker.start()
+
+    def delete_index(self):
+        if not self.search_client:
+            return
+        
+        skill_name = self.skill_combo.currentText()
+        index_name = f"skill-explorer-{skill_name.lower().replace('skill', '')}"
+        
+        reply = QMessageBox.question(
+            self, "Confirm Delete", f"Delete index '{index_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.worker = IndexWorker(self.search_client, None, skill_name, "", "delete")
+            self.worker.finished.connect(self.on_index_operation_complete)
+            self.worker.start()
+
+    def on_index_operation_complete(self, result: str):
+        self.progress_bar.setValue(100)
+        self.index_output.setPlainText(result)
+        self.output_tabs.setCurrentIndex(1)
 
 
-class SkillWorker(QThread):
-    resultsReady = pyqtSignal(list)
+class PreviewWorker(QThread):
+    finished = pyqtSignal(str)
 
-    def __init__(self, cls, path, tester):
+    def __init__(self, engine: SkillPreviewEngine, skill_name: str, input_text: str):
         super().__init__()
-        self.cls = cls
-        self.path = path
-        self.tester = tester
+        self.engine = engine
+        self.skill_name = skill_name
+        self.input_text = input_text
 
     def run(self):
-        results = self.tester.test_skill_with_class(self.cls, file_path=self.path)
-        self.resultsReady.emit(results)
+        result = self.engine.preview_skill(self.skill_name, self.input_text)
+        self.finished.emit(self.engine.format_output(result))
+
+
+class IndexWorker(QThread):
+    finished = pyqtSignal(str)
+
+    def __init__(self, client: AzureSearchClient, engine: SkillPreviewEngine, 
+                 skill_name: str, input_text: str, operation: str):
+        super().__init__()
+        self.client = client
+        self.engine = engine
+        self.skill_name = skill_name
+        self.input_text = input_text
+        self.operation = operation
+
+    def run(self):
+        import json
+        try:
+            index_name = f"skill-explorer-{self.skill_name.lower().replace('skill', '')}"
+            
+            if self.operation == "create":
+                created_name = self.client.create_skill_index(self.skill_name)
+                preview = self.engine.preview_skill(self.skill_name, self.input_text)
+                doc = self.client.prepare_document_for_index(self.skill_name, preview["indexDocument"])
+                self.client.upload_document(created_name, doc)
+                self.finished.emit(f"Index '{created_name}' created and document uploaded.\n\nUploaded document:\n{json.dumps(doc, indent=2)}")
+            
+            elif self.operation == "query":
+                results = self.client.query_index(index_name)
+                self.finished.emit(f"Query results from '{index_name}':\n\n{json.dumps(results, indent=2, default=str)}")
+            
+            elif self.operation == "delete":
+                self.client.delete_index(index_name)
+                self.finished.emit(f"Index '{index_name}' deleted successfully.")
+        
+        except Exception as e:
+            self.finished.emit(f"Error: {str(e)}")
 
 
 if __name__ == "__main__":
