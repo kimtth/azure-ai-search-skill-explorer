@@ -278,43 +278,33 @@ Service Period        Consultant       Hours    Rate     Amount
             "id": "doc_001",
             "content": f"[Image: {image_url.split('/')[-1]}]",
             "tags": [
-                {"name": "building", "confidence": 0.99},
-                {"name": "skyscraper", "confidence": 0.98},
-                {"name": "city", "confidence": 0.97},
-                {"name": "architecture", "confidence": 0.95},
-                {"name": "outdoor", "confidence": 0.94},
-                {"name": "tower", "confidence": 0.92},
-                {"name": "sky", "confidence": 0.88},
-                {"name": "urban", "confidence": 0.85}
+                "building",
+                "skyscraper",
+                "city",
+                "architecture",
+                "outdoor",
+                "tower",
+                "sky",
+                "urban"
             ],
-            "description": {
-                "tags": ["building", "skyscraper", "city", "architecture", "outdoor"],
-                "captions": [{"text": "an aerial view of the Empire State Building in New York City", "confidence": 0.94}]
-            },
+            "description": "an aerial view of the Empire State Building in New York City",
             "categories": [
-                {"name": "building_", "score": 0.95},
-                {"name": "outdoor_", "score": 0.75}
-            ],
-            "imageType": {"clipArtType": 0, "lineDrawingType": 0},
-            "color": {
-                "dominantColorForeground": "Grey",
-                "dominantColorBackground": "Blue",
-                "dominantColors": ["Grey", "Blue", "White"],
-                "accentColor": "8C7B6E",
-                "isBwImg": False
-            }
+                "building",
+                "outdoor"
+            ]
         }
     
     def _preview_vision_vectorize(self, image_url: str) -> Dict:
         """Official output: vector (1024 dimensions for Azure AI Vision multimodal embeddings)"""
+        # Generate sample 1024-dimensional vector
+        import random
+        random.seed(hash(image_url) % 2**32)  # Consistent vector for same image
+        vector = [random.uniform(-1.0, 1.0) for _ in range(1024)]
+        
         return {
             "id": "doc_001",
             "content": f"[Image: {image_url.split('/')[-1]}]",
-            "imageVector": [
-                0.0123, -0.0456, 0.0789, -0.0234, 0.0567, -0.0891, 0.0345, -0.0678,
-                0.0912, -0.0147, 0.0258, -0.0369, 0.0471, -0.0582, 0.0693, -0.0804,
-                "...(1024 dimensions total - Azure AI Vision 4.0 multimodal embeddings)"
-            ]
+            "imageVector": vector
         }
     
     def _preview_document_extraction(self, image_url: str) -> Dict:
